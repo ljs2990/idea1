@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아이디어 공유</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f4f9;
+            font-family: 'Arial', sans-serif;
+        }
+        h3 {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        .idea-card {
+            height: 400px;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease-in-out;
+            position: relative;
+        }
+        .idea-card:hover {
+            transform: translateY(-5px);
+        }
+        .card-image img {
+            height: 150px;
+            object-fit: cover;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+        .card-content {
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #34495e;
+        }
+        .card-footer {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        .card-footer span {
+            margin-right: 10px;
+        }
+        .like-btn {
+            background-color: #e74c3c;
+            border-radius: 50%;
+            padding: 10px;
+            color: white;
+            cursor: pointer;
+        }
+        .like-btn:hover {
+            background-color: #c0392b;
+        }
+        .input-field input[type="text"] {
+            border-bottom: 2px solid #3498db;
+        }
+        .input-field input[type="text"]:focus {
+            border-bottom: 2px solid #2980b9;
+            box-shadow: none;
+        }
+        .container {
+            margin-top: 30px;
+        }
+    </style>
+    <script type="module">
+        // Firebase 설정
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAM9mvMvKkRNBh2it7fetmnIh4VXxnpQI",
+            authDomain: "todo-2e2bf.firebaseapp.com",
+            projectId: "todo-2e2bf",
+            storageBucket: "todo-2e2bf.appspot.com",
+            messagingSenderId: "294428286250",
+            appId: "1:294428286250:web:75c5cfcb282faaafadd253",
+            measurementId: "G-CK8SPWDSBD"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 실시간 게시물 추가
+        async function addIdea(title, content, imageUrl) {
+            try {
+                await addDoc(collection(db, "ideas"), {
+                    title: title,
+                    content: content,
+                    imageUrl: imageUrl,
+                    timestamp: new Date(),
+                    likes: 0
+                });
+                M.toast({html: '아이디어가 추가되었습니다!', classes: 'rounded'});
+            } catch (e) {
+                console.error("Error adding document: ", e);
+            }
+        }
+
+        // 실시간 데이터 구독
+        window.onload = () => {
+            const ideaContainer = document.getElementById('idea-list');
+            onSnapshot(collection(db, "ideas"), (snapshot) => {
+                ideaContainer.innerHTML = ''; // 리스트 초기화
+                snapshot.forEach((doc) => {
+                    const idea = doc.data();
+                    const card = document.createElement('div');
+                    card.classList.add('col', 's12', 'm4'); // 3열로 카드 배치
+                    card.innerHTML = `
+                        <div class="card idea-card" onclick="openModal('${doc.id}', '${idea.title}', '${idea.content}', '${idea.imageUrl}', ${idea.likes})">
+                            <div class="card-image">
+                                <img src="${idea.imageUrl || 'https://via.placeholder.com/150'}" alt="Idea Image">
+                            </div>
+                            <div class="card-content">
+                                <span class="card-title">${idea.title}</span>
+                                <p>${idea.content}</p>
+                            </div>
+                            <div class="card-footer">
+                                <span>${new Date(idea.timestamp.toDate()).toLocaleDateString()}</span>
+                                <span><i class="material-icons">favorite</i> ${idea.likes}</span>
+                            </div>
+                        </div>
+                    `;
+                    ideaContainer.appendChild(card);
+                });
+            });
+        };
+
+        // 아이디어 추가 함수
+        function handleAddIdea() {
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const imageUrl = document.getElementById('image-url').value || 'https://via.placeholder.com/150'; // 기본 이미지 제공
+            if (title && content) {
+                addIdea(title, content, imageUrl);
+                document.getElementById('title').value = '';
+                document.getElementById('content').value = '';
+                document.getElementById('image-url').value = '';
+            } else {
+                M.toast({html: '제목과 내용을 모두 입력해주세요', classes: 'rounded'});
+            }
+        }
+
+        // 모달 열기
+        function openModal(id, title, content, imageUrl, likes) {
+            const modal = document.getElementById('ideaModal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-content').textContent = content;
+            document.getElementById('modal-img').src = imageUrl || 'https://via.placeholder.com/150';
+            document.getElementById('like-count').textContent = likes;
+            document.getElementById('like-btn').onclick = function() {
+                updateLikes(id, likes + 1);
+            };
+            M.Modal.getInstance(modal).open();
+        }
+
+        // 좋아요 업데이트 함수
+        async function updateLikes(id, newLikes) {
+            try {
+                await updateDoc(doc(db, "ideas", id), {
+                    likes: newLikes
+                });
+            } catch (e) {
+                console.error("Error updating likes: ", e);
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h3 class="center-align">아이디어 공유</h3>
+        <div class="row">
+            <div class="input-field col s4">
+                <input id="title" type="text" class="validate">
+                <label for="title">제목</label>
+            </div>
+            <div class="input-field col s4">
+                <input id="content" type="text" class="validate">
+                <label for="content">아이디어</label>
+            </div>
+            <div class="input-field col s4">
+                <input id="image-url" type="text" class="validate">
+                <label for="image-url">이미지 URL</label>
+            </div>
+        </div>
+        <div class="row center-align">
+            <a class="waves-effect waves-light btn" onclick="handleAddIdea()">추가</a>
+        </div>
+        <div id="idea-list" class="row">
+            <!-- 실시간 아이디어 목록이 여기 표시됩니다 -->
+        </div>
+    </div>
+
+    <!-- 모달 -->
+    <div id="ideaModal" class="modal">
+        <div class="modal-content">
+            <h4 id="modal-title"></h4>
+            <p id="modal-content"></p>
+            <img id="modal-img" src="" alt="Idea Image" style="width: 100%; height: auto;">
+        </div>
+        <div class="modal-footer">
+            <span id="like-count"></span>
+            <a href="#!" id="like-btn" class="like-btn"><i class="material-icons">favorite</i></a>
+            <a href="#!" class="modal-close waves-effect waves-green btn-flat">닫기</a>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var modals = document.querySelectorAll('.modal');
+            M.Modal.init(modals);
+        });
+
+
+    
